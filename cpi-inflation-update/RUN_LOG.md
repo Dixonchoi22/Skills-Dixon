@@ -92,3 +92,31 @@ appended (Apr 136.50 / May 135.13 / Jun 135.14). 50 existing cells verified.
 
 **Norway and Sweden left blank on the new rows on purpose** — neither source is
 confirmed (see `mappings/SACN.md`). A visible gap beats unverifiable numbers.
+
+## 2026-07-20 — Switzerland (rebase to Dec 2025 = 100)
+
+**Written:** 100 cells rewritten + 2 new rows (May / Jun 2026).
+316 existing cells verified untouched.
+**Backup:** `%TEMP%\cpi-backups\CH_inflation_indicators.bak-20260720-144207.xlsx`
+
+Correction to the earlier assessment: **six of eight columns were already
+correct** on Dec 2025 = 100 and were not touched (52/52 months matched BFS).
+Only two columns were broken:
+
+| Column | Was on | Rows rewritten |
+|--------|--------|---------------:|
+| `Total (NW01)` | Dec 2020 = 100 until Dec 2025 | 48 |
+| `Food (3G28)`  | 2015 annual mean = 100 throughout | 52 |
+
+Effect, Dec-2025 to Jan-2026 month-on-month:
+
+| Series | Before | After |
+|--------|-------:|------:|
+| Total | -6.55% | -0.06% |
+| Food | +0.69% | +0.72% |
+| Bread / Fish / Meat / Milk / Veg / Fruit | unchanged | unchanged |
+
+The six unchanged columns are the proof the rewrite was contained. The whole
+Dec-2025 row now reads 100.00 across all eight columns - one base, one series.
+
+Headers and date format untouched, per user instruction.

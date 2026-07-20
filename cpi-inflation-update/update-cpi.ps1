@@ -23,7 +23,7 @@
     .\update-cpi.ps1 -Country UK -FixMismatches     # rewrites history: ask first
 #>
 param(
-  [ValidateSet('UK','DE','NL','SACN')][string]$Country = 'UK',
+  [ValidateSet('UK','DE','NL','SACN','CH')][string]$Country = 'UK',
   [switch]$DryRun,
   [switch]$FixMismatches,
   [double]$FixAbove = 0,    # with -FixMismatches, only correct gaps LARGER than this.
@@ -241,12 +241,98 @@ function Get-SacnSeries {
   return $out
 }
 
+# ------------------------------------------------------------- CH (BFS LIK) --
+# BFS republishes the ENTIRE history on the current base, so we never compute a
+# splice factor here - we read the official rebased numbers directly.
+# Column -> row number in the cube's INDEX_m sheet (located by COICOP code).
+$CH_MAP = @(
+  [pscustomobject]@{ Col=2; Code='00'         }  # Total (NW01)
+  [pscustomobject]@{ Col=3; Code='01.1.1.3.1' }  # Bread (NW03)  - bread ONLY
+  [pscustomobject]@{ Col=4; Code='01'         }  # Food (3G28)   - food AND non-alc bev
+  [pscustomobject]@{ Col=5; Code='01.1.3'     }  # Fish/Seafood (NW05)
+  [pscustomobject]@{ Col=6; Code='01.1.2'     }  # Meat (NW04)
+  [pscustomobject]@{ Col=7; Code='01.1.4'     }  # Milk/Cheese/Eggs (NW06)
+  [pscustomobject]@{ Col=8; Code='01.1.7'     }  # Vegetables (NW09)
+  [pscustomobject]@{ Col=9; Code='01.1.6'     }  # Fruit (NW08)
+)
+
+# The BFS download URL carries an asset id that CHANGES EVERY MONTH. Find the
+# current one on that month's release page (bfs.admin.ch/news/de/<year>-<nn>)
+# and update this. The script fails loudly if the cube looks stale.
+$CH_ASSET = '36708199'
+
+function Get-ChSeries {
+  param($Map)
+  $f = "$env:TEMP\bfs_lik_$CH_ASSET.xlsx"
+  if (-not (Test-Path $f)) {
+    & curl.exe -sL -m 300 "https://dam-api.bfs.admin.ch/hub/api/dam/assets/$CH_ASSET/master" -o $f | Out-Null
+  }
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  $z = [IO.Compression.ZipFile]::OpenRead($f)
+  try {
+    $shared = New-Object System.Collections.ArrayList
+    $e = $z.Entries | Where-Object { $_.FullName -eq 'xl/sharedStrings.xml' }
+    $sr = New-Object IO.StreamReader($e.Open()); $xs = [xml]$sr.ReadToEnd(); $sr.Close()
+    foreach ($si in $xs.sst.si) { [void]$shared.Add($si.InnerText) }
+    $e = $z.Entries | Where-Object { $_.FullName -eq 'xl/worksheets/sheet1.xml' }   # INDEX_m
+    $sr = New-Object IO.StreamReader($e.Open()); $xw = [xml]$sr.ReadToEnd(); $sr.Close()
+  } finally { $z.Dispose() }
+
+  $cell = @{}
+  foreach ($row in $xw.worksheet.sheetData.row) {
+    foreach ($c in $row.c) {
+      if (-not $c.r) { continue }
+      $v = $c.v
+      if ($c.t -eq 's' -and $null -ne $v) { $v = $shared[[int]$v] }
+      if ($null -ne $v) { $cell[$c.r] = $v }
+    }
+  }
+
+  # sanity: the cube must actually be on the base we expect
+  $banner = "$($cell['A3'])"
+  if ($banner -notmatch 'Dezember 2025=100') {
+    throw "BFS cube base changed - banner reads '$banner'. Re-check the rebasing before writing."
+  }
+
+  function ColLetter([int]$n) { $s=''; while($n -gt 0){ $m=($n-1)%26; $s=[char](65+$m)+$s; $n=[int](($n-$m)/26) }; $s }
+  $mcol = @{}
+  for ($i=15; $i -le 700; $i++) {
+    $cn = ColLetter $i; $h = $cell["${cn}4"]
+    if ($h -and $h -match '^\d+$' -and [int]$h -gt 20000) {
+      $d = [DateTime]::FromOADate([double]$h)
+      $mcol[("{0}-{1:d2}" -f $d.Year, $d.Month)] = $cn
+    }
+  }
+  # COICOP code -> sheet row (first occurrence; the sheet repeats blocks lower down)
+  $coRow = @{}
+  for ($rn=5; $rn -le 600; $rn++) {
+    $co = $cell["E$rn"]; if (-not $co) { continue }
+    $co = "$co" -replace "^'", ''
+    if (-not $coRow.ContainsKey($co)) { $coRow[$co] = $rn }
+  }
+
+  $out = @{}
+  foreach ($m in $Map) {
+    if (-not $coRow.ContainsKey($m.Code)) { throw "BFS: COICOP $($m.Code) not found in cube" }
+    $rn = $coRow[$m.Code]
+    $h = @{}
+    foreach ($k in $mcol.Keys) {
+      $v = $cell["$($mcol[$k])$rn"]
+      if ($null -ne $v -and "$v" -match '^[\d.]+$') { $h[$k] = [math]::Round([double]$v, 2) }
+    }
+    $out[$m.Col] = $h
+    Write-Host ("  COICOP {0,-11} col {1,2}  row {2,3}  {3} points" -f $m.Code, $m.Col, $rn, $h.Count)
+  }
+  return $out
+}
+
 # ------------------------------------------------------------------ config --
 $CFG = @{
   UK = @{ File = 'UK_Inflation_Indicators.xlsx';      Map = $UK_MAP; Fetch = { Get-UkSeries $UK_MAP } }
   DE = @{ File = 'Germany_inflation_indicators.xlsx'; Map = $DE_MAP; Fetch = { Get-DeSeries $DE_MAP } }
   NL = @{ File = 'NL_inflation_indicators.xlsx';      Map = $NL_MAP; Fetch = { Get-NlSeries $NL_MAP } }
   SACN = @{ File = 'SACN_inflation_indicators.xlsx';  Map = $SACN_MAP; Fetch = { Get-SacnSeries $SACN_MAP } }
+  CH = @{ File = 'CH_inflation_indicators.xlsx';      Map = $CH_MAP; Fetch = { Get-ChSeries $CH_MAP } }
 }
 $c    = $CFG[$Country]
 $File = Join-Path $CPI_DIR $c.File
