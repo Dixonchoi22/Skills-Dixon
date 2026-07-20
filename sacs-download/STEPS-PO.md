@@ -63,8 +63,8 @@ Dixon, 2026-07-20: **UK & IRL, SE, NO, NL, DK, CH**.
 | `NO` | BGO, OSL | 2 |
 | `NL` | North, West | 2 |
 | `CH` | GVA, ZRH | 2 |
-| `DK` | CPH | 1 |
-| | | **30** |
+| ~~`DK`~~ | ~~CPH~~ | ⏸️ **ON HOLD** |
+| | | **29 active** |
 
 ❌ **NOT from SACS** — do not touch: `BE`, `Germany`, `IT`, `Lux`,
 `SCAN 3022-3058`. These come from somewhere else.
@@ -73,10 +73,10 @@ Dixon, 2026-07-20: **UK & IRL, SE, NO, NL, DK, CH**.
 needing unit switch → report → month → export → rename → file. This is the
 whole point of automating it.
 
-⚠️ **DK / CPH looks dormant** — its newest file is `1225.csv` written
-2026-01-02, while every other unit has `0626.csv` from 2026-07-01. The
-`spend-data-update` skill also lists DK/CPH as on hold. **Confirm with Dixon
-before including it.**
+⏸️ **DK / CPH is ON HOLD** — confirmed by Dixon 2026-07-20. Do not download it.
+Its newest file is `1225.csv` from 2026-01-02, and `spend-data-update` also
+lists DK/CPH as on hold, so both ends of the chain agree. Resume only if Dixon
+says so.
 
 ### Step 2 — Reports
 Left navigation, bottom item: **Reports**.
@@ -142,11 +142,30 @@ still saved. **An empty file is a valid result, not a failure** — but a
 
 ---
 
-## Still to confirm
+## Download filename — CONFIRMED
 
-- [ ] What filename SACS gives the download before it is renamed
-- [ ] Does Export download straight away, or land in the `Download Report` tile?
-- [ ] Non-UK countries (BE, CH, DK, Germany, IT, NL, NO, SE, SCAN, Lux folders
-      exist) — are those also pulled from SACS, or another system?
-- [ ] `DUB` and `LNER` folders — which SACS units feed them?
-- [ ] **Invoice data** — the second download, not yet taught
+Clicking **Export** downloads immediately (no `Download Report` tile step). The
+browser's download popup shows a GUID, but that is Chrome's internal download
+id — **on disk the file is `ReceivedPurchaseOrders.csv`** (Chrome dedups
+repeats as `ReceivedPurchaseOrders (30).csv`, etc.). Manual flow was: export →
+rename to `MMYY.csv` → move into the unit folder.
+
+In automation we control the download directly: intercept it, and save straight
+to `<country>\<unit>\<MMYY>.csv` with no trip through Downloads. Sanity check:
+STN-JET2 June export = ~150 KB, and `STN_Jet2\0626.csv` on disk = 149,651 bytes
+— same data, so the procedure reproduces the existing file exactly.
+
+## Resolved
+
+- ✅ Countries from SACS: UK & IRL, SE, NO, NL, DK, CH only.
+- ✅ DK-CPH on hold; DK-BLL added (new folder).
+- ✅ NL-MMM skipped.
+- ✅ IRL-DUG merges into DUB; CH-LXL_GVA merges into GVA (one CSV each).
+- ✅ LNER is a different website — not SACS.
+- ✅ Export filename is `ReceivedPurchaseOrders.csv`, downloads on click.
+
+## Still to do
+
+- [ ] **Invoice data** — the second download, not yet taught (Dixon: hold).
+- [ ] Build + test the automation on ONE unit, with Dixon watching, before
+      looping all 29. This is a production system.
