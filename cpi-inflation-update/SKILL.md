@@ -138,10 +138,46 @@ country, any columns skipped (source not yet published) or warnings
 
 ## Scheduling
 
-Runs monthly via a Windows Scheduled Task (same pattern as the second-brain
-git backup) once release dates have passed. UK release ~22nd of the month for
-the prior month; other countries vary — record each country's release day in
-its mapping file as it is confirmed.
+`run-monthly.ps1` runs every automated country in one pass and logs the result.
+It deliberately does **not** pass `-FixMismatches` — the scheduled job's only
+job is to add the new month. Disagreements are logged for a human, never
+auto-corrected. One country failing does not stop the others.
+
+```powershell
+.\run-monthly.ps1 -DryRun    # see what would change
+.\run-monthly.ps1            # the real run
+```
+
+Logs: `%LOCALAPPDATA%\cpi-inflation-update\run-<timestamp>.log`, plus a
+one-line `last-run.txt` for a quick glance.
+
+### Release days (why the 23rd)
+
+| Country | Data for month M is published |
+|---------|-------------------------------|
+| Switzerland | start of M+1 |
+| Netherlands | 4th–7th of M+1 |
+| Denmark, Norway | ~10th of M+1 |
+| Germany | 10th–13th of M+1 |
+| Sweden | ~15th of M+1 |
+| **UK** | **~22nd of M+1** |
+| Belgium | last working day of **M itself** |
+
+The UK is last, so a run on the **23rd** picks up every country in one go.
+
+### Scheduled Task
+
+Registered as **`CPI Inflation Update`**, monthly on day 23 at 09:00,
+**interactive** (`/it`) — it must run with the user logged on, because Excel
+COM needs a desktop session and the workbooks live in synced OneDrive.
+
+```powershell
+schtasks /query /tn "CPI Inflation Update"          # check it
+schtasks /run   /tn "CPI Inflation Update"          # run it now
+schtasks /delete /tn "CPI Inflation Update" /f      # remove it
+```
+
+**Italy is not in the scheduled run** — not yet automated. See `mappings/IT.md`.
 
 ## Running it (UK)
 

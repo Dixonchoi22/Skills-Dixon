@@ -148,3 +148,27 @@ Food VAT cut 12% → 6% from 1 Apr 2026 (to 31 Dec 2027). SCB carries it into it
 official 12-month rate (−6.8% at Jun-26). Swedish food inflation will read
 ~5.5pp below comparable countries until Apr 2027 and rebound at end-2027.
 Do not "correct" it. See `mappings/SACN.md`.
+
+## 2026-07-20 — monthly Scheduled Task registered
+
+`run-monthly.ps1` added: runs UK, DE, NL, SACN, CH, BE in one pass, logs to
+`%LOCALAPPDATA%\cpi-inflation-update\`. Deliberately does NOT pass
+`-FixMismatches` — the scheduled job only ADDS the new month; disagreements are
+logged for a human. One country failing does not stop the others.
+
+Registered as Windows Scheduled Task **`CPI Inflation Update`** — monthly,
+day 23, 09:00, interactive (Excel COM needs a desktop session). Day 23 is
+chosen because the UK publishes last, ~22nd, so one run catches everyone.
+
+Dry run over all six: 0 failures, all already up to date, 672 (UK) + 488 (DE) +
+100 (NL) + 432 (CH) + 54 (BE) historical cells re-verified against source.
+
+**Italy excluded** — still not automated (ISTAT service outage).
+
+### Bug found and fixed during the test
+
+The runner's summary reported "with disagreements: 0" while the log plainly
+showed 2 for Germany and 8 for the Netherlands. Cause: the updater reports
+through `Write-Host`, which goes to the Information stream, so `2>&1` never
+captured it. Changed to `*>&1`. This mattered — the summary was the thing a
+human would glance at, and it was quietly saying "all clear" when it was not.
