@@ -128,11 +128,11 @@ Not `01.1` "Food" — that does not fit. Eurostat HICP also ruled out.
 
 ---
 
-## 🇩🇰🇳🇴🇸🇪 Nordics — `SACN_inflation_indicators.xlsx` 🟡🔴 NOT AUTOMATED
+## 🇩🇰🇳🇴🇸🇪 Nordics — `SACN_inflation_indicators.xlsx` ✅ Denmark only
 
 | Col | Header | Source | |
 |----:|--------|--------|---|
-| B | Food DK (3G06) | **Denmark** — `api.statbank.dk/v1/data`, table `PRIS111` `VAREGR=010000` to 2025-12; then table `PRIS01` `VAREGR=011` **× 1.362583** | 🟡 |
+| B | Food DK (3G06) | **Denmark** — `api.statbank.dk/v1/data`, table `PRIS111` `VAREGR=010000` to 2025-12; then table `PRIS01` `VAREGR=011` **× 1.362583** | ✅ |
 | C | Food NO (3G21) | **Norway** — `data.ssb.no/api/v0/en/table/03013` `Konsumgrp=01` to 2025-12; then table `14700` **× 1.397917** | 🔴 2026 |
 | D | Food SE (3G27) | **Sweden** — SCB `KPICOI80MN` `VaruTjanstegrupp=01`, rebased to 2015 mean | 🔴 |
 
@@ -196,7 +196,7 @@ re-linking or a modelled block. **Do not append to these rows; re-derive them.**
 ISTAT's current data (first-release vs final revision). Frozen seafood is
 material: file 128.2 vs ISTAT 125.1.
 
-## 🇳🇱 Netherlands — `NL_inflation_indicators.xlsx` 🔴 BOTH COLUMNS WRONG
+## 🇳🇱 Netherlands — `NL_inflation_indicators.xlsx` ✅ AUTOMATED (2026 values corrected)
 
 **Source:** CBS OpenData OData API. **Free:** yes, anonymous.
 
