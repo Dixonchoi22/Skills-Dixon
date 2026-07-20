@@ -129,6 +129,21 @@ Each job row exposes:
 Statuses seen: `In Queue`, `Complete`, `Failed`. The grid is **per unit** and
 keeps history (other users' jobs show too).
 
+## ✅ FIRST STEP EVERY TIME: check before submitting (Dixon's rule)
+
+> "First thing first is to check has it been downloaded before; if yes, just
+> download that one."
+
+Before submitting any invoice job, scan the unit's grid for a COMPLETE job
+(anyone's) whose criteria match the whole month needed (see match rule below).
+If one exists, **download it** — do not submit. Only submit + wait when no
+matching completed job is found. `scan-available.js` does this scan and writes
+`reusable-jobs.json`.
+
+**Scan on 2026-07-20:** nothing reusable for Feb–Jun 2026 across any of the 10
+units — all must be self-generated. (Logic checked: UK's only completed job was
+RPerisic's 01–14 July, a partial month, correctly rejected.)
+
 ## Reuse other people's completed jobs (Dixon's idea)
 
 The grid shows colleagues' jobs. A completed job — anyone's — is **reusable
