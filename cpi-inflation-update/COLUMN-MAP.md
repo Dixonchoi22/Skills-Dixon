@@ -72,38 +72,43 @@ Headers already carry the source codes — nothing misleading here.
 
 ---
 
-## 🇨🇭 Switzerland — `CH_inflation_indicators.xlsx` 🟡 NOT AUTOMATED
+## 🇨🇭 Switzerland — `CH_inflation_indicators.xlsx` ✅ AUTOMATED (rebased 2026-07-20)
 
 **Source:** BFS/FSO **LIK detailed-results cube** (xlsx, sheet `INDEX_m`)
 `https://dam-api.bfs.admin.ch/hub/api/dam/assets/<id>/master`
 ⚠️ the asset id **changes every month** — scrape it from that month's release page.
 **Free:** yes. STAT-TAB PX-Web does **not** carry the LIK.
 
-| Col | Header | Source series | Base | |
-|----:|--------|---------------|------|---|
-| B | Total (NW01) | LIK Total | Dec 2025 = 100 *(from Jan-26)* | ✅ |
-| C | Bread (NW03) | COICOP **01.1.1.3.1 Brot** *(bread only)* | Dec 2025 = 100 | ✅ |
-| D | Food (3G28) | COICOP **01** ÷ 2015 annual mean × 100 | **2015 mean = 100** | 🟡 |
-| E | Fish/Seafood (NW05) | COICOP 01.1.3 | Dec 2025 = 100 | ✅ |
-| F | Meat (NW04) | COICOP 01.1.2 | Dec 2025 = 100 | ✅ |
-| G | Milk/Cheese/Eggs (NW06) | COICOP 01.1.4 | Dec 2025 = 100 | ✅ |
-| H | Vegetables (NW09) | COICOP 01.1.7 | Dec 2025 = 100 | ✅ |
-| I | Fruit (NW08) | COICOP 01.1.6 | Dec 2025 = 100 | ✅ |
+**All 8 columns are now on Dec 2025 = 100.**
 
-**🔴 THIS FILE HOLDS THREE DIFFERENT BASES AT ONCE.** BFS rebased to
-Dec 2025 = 100 with the January 2026 release:
+| Col | Header | COICOP | Cube row | |
+|----:|--------|--------|---------:|---|
+| B | Total (NW01) | `00` Total | 5 | ✅ |
+| C | Bread (NW03) | `01.1.1.3.1` **bread only** | 12 | ✅ |
+| D | Food (3G28) | `01` food **and non-alcoholic beverages** | 6 | ✅ |
+| E | Fish/Seafood (NW05) | `01.1.3` | 34 | ✅ |
+| F | Meat (NW04) | `01.1.2` | 20 | ✅ |
+| G | Milk/Cheese/Eggs (NW06) | `01.1.4` | 40 | ✅ |
+| H | Vegetables (NW09) | `01.1.7` | 73 | ✅ |
+| I | Fruit (NW08) | `01.1.6` | 58 | ✅ |
 
-- `NW01` — Dec 2020 = 100 up to and including Dec 2025, then Dec 2025 = 100
-- `NW03`–`NW09` — an unidentified older base up to Nov 2025, then Dec 2025 = 100
-- `3G28` — 2015 annual mean = 100 throughout; **never rebased**
+BFS republishes the **whole history** on the current base, so values are read
+directly — no splice factor is ever computed. That is why CH is automatable
+and Belgium is not.
 
-Consequences: the **Dec-2025 row is internally inconsistent** (`NW01` = 106.94 on
-the old base sits beside `NW03`–`NW09` = 100.00 on the new one), so any
-Dec-25 → Jan-26 change computed from `NW01` shows a false **−6.5%**. And the
-pre-2026 history of `NW03`–`NW09` matches no base we could identify — it came
-from a Macrobond-internal reference and is **not verifiable**.
+**Fixed 2026-07-20.** BFS rebased to Dec 2025 = 100 at the January 2026
+release. Six of the eight columns were **already correct** (52/52 months
+matched) and were left untouched. Two were broken:
 
-`NW03` is bread only, *not* 01.1.1 "bread, flour and cereals" — do not "correct" it.
+- `Total (NW01)` — still on Dec 2020 = 100 to Dec 2025, then jumped bases
+- `Food (3G28)` — on 2015 annual mean = 100 throughout, never rebased
+
+Symptom: `Total` appeared to fall **−6.55%** Dec-25 → Jan-26. Now −0.06%.
+The Dec-2025 row reads 100.00 across all eight columns.
+
+⚠️ `NW03` is bread only, *not* 01.1.1 "bread, flour and cereals" — do not
+"correct" it. ⚠️ The BFS download asset id **changes monthly**; the script
+aborts if the cube's base banner is no longer `Basis Dezember 2025=100`.
 
 ---
 
