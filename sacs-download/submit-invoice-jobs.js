@@ -105,6 +105,20 @@ const routePrefix = page => page.evaluate(() => { const a=[...document.querySele
       if (SUBMIT) {
         await page.click('#ExportVendorInvoiceReport').catch(() => {});
         await page.waitForTimeout(1800);
+
+        // ⚠️ The SACS queue max (5) is GLOBAL across ALL units, not per unit.
+        // When full, Export shows a "Maximum Queue Reached" toast and the job
+        // does NOT queue. Detect it, DON'T log, and stop this run.
+        const maxed = await page.evaluate(() =>
+          /Maximum Queue Reached/i.test(document.body.innerText || '')).catch(() => false);
+        if (maxed) {
+          console.log('    ✗ ' + u.token + ' ' + m.mon + ' — MAXIMUM QUEUE REACHED (not queued). Stopping; wait for the queue to clear.');
+          console.log('\nGlobal queue is full (5). Download completed jobs to free slots, then re-run.');
+          fs.writeFileSync(LOG, JSON.stringify(submissions, null, 2));
+          await browser.close();
+          return;
+        }
+
         submissions.push({ unit: u.label, token: u.token, mon: m.mon, year: 2026, from: m.from, to: m.to, prefix, submittedAt: new Date().toISOString() });
         already.add(key(u.token, m.mon));
         sentThisRun++;

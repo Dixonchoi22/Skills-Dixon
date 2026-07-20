@@ -146,11 +146,24 @@ instead of submitting our own** IF its criteria match exactly:
 reusable. Matching the criteria is what makes reuse safe; download-and-hope is
 not. If no matching completed job exists, submit our own and wait.
 
-## First real batch submitted (2026-07-20 16:38)
+## ⚠️ The queue limit is GLOBAL = 5 (corrected)
 
-UK-MASTER Feb–Jun 2026 = 5 jobs queued (job ids 2638092–2638097). No "max"
-dialog — confirms the **5-job limit is PER UNIT**, and 5 months = one full unit.
-Logged in `invoice-submissions.json`.
+**Correction (Dixon, 2026-07-20):** the 5-job limit is **shared across ALL
+units** — only 5 jobs total can be pending in SACS at once, not 5 per unit.
+
+I initially misread it as per-unit and submitted UK's 5 (which queued fine,
+ids 2638092–2638097), then fired 45 more across the other units — **all 45
+bounced with a red "Maximum Queue Reached. Please wait for queue to process."
+toast and did NOT queue.** The toast is an in-page notification, not a JS
+dialog, so the first script didn't catch it and wrongly logged all 50. The log
+was corrected back to the 5 real UK jobs, and the submitter now detects the
+toast, refuses to log, and stops.
+
+**Correct workflow:** submit up to 5 → **wait** for SACS to process them →
+download the completed ones (which frees queue slots) → submit the next up-to-5.
+Repeat. Jobs take up to ~1h. So the backfill runs in rounds of 5, over time.
+
+Only UK Feb–Jun 2026 is actually queued right now.
 
 ## Still to confirm (Dixon continuing later)
 
