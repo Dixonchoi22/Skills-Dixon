@@ -49,10 +49,28 @@ To find a CDID by title (more reliable than guessing codes):
 Three headers do NOT mean the obvious COICOP class. The mapping above is what
 reproduces the file's own history exactly, so keep it:
 
-1. **`UK Food CPI` is CPIH, not CPI.** The whole rest of the file is CPI; this
-   one column is CPIH division 01. Rejected candidates: `D7C8` (CPI 01.1 Food)
-   = 113.5/143.2/143.6, `D7BU` (CPI division 01) = 113.7/143.9/144.5. Only
-   `L523` gives the file's 114.0/144.3/144.8.
+1. **`UK Food CPI` INCLUDES DRINKS, and is CPIH not CPI.**
+   The header says "Food" but `L523`'s official ONS title is
+   **"CPIH INDEX 01 : FOOD AND NON-ALCOHOLIC BEVERAGES 2015=100"** — soft
+   drinks are inside it. It is also the only CPIH column in the file; every
+   other column is CPI.
+
+   Consequence to be aware of: **non-alcoholic drinks are counted twice** in
+   this workbook — once inside `UK Food CPI`, and again in the separate
+   `non-alcohol beverage` column. Do not sum or average the two.
+
+   Nearby series, for reference (May 2026 values):
+
+   | CDID | Title | Drinks? | May 2026 |
+   |------|-------|:---:|---:|
+   | `L523` ← in use | CPIH 01 Food **and non-alcoholic beverages** | included | 144.7 |
+   | `D7BU` | CPI 01 Food and non-alcoholic beverages | included | 144.3 |
+   | `D7C8` | CPI 01.1 **Food only** | excluded | 143.5 |
+   | `D7C9` | CPI 01.2 Non-alcoholic beverages | drinks only | 150.7 |
+
+   **Decision (user, 2026-07-20): keep `L523` and DO NOT touch the header.**
+   The header feeds downstream connections; renaming it would break them.
+   Switching series would also break the continuity of a 4-year time series.
 2. **`Bakery` excludes bread.** It is class 01.1.1.4 "Other bakery products".
    Rejected: `D7D5` (01.1.1 Bread & cereals) = 116.0/142.2 — way off.
 3. **`Confectionery` is the narrow class 01.1.8.4.** Rejected: `D7DC`

@@ -83,10 +83,28 @@ For each in-scope country the user asks for (or all active ones):
    see `update-cpi.ps1`). Match the file's number formatting.
 6. **Save** and close.
 
+## 🚫 HARD RULE — data only, never structure
+
+The ONLY permitted edits are:
+
+1. **Adding a date** in column A (next month's row), and
+2. **Adding a CPI index value** into an existing column.
+
+Everything else is forbidden — **never**:
+- rename, reword or "correct" a column header,
+- add, remove, reorder or re-type a column,
+- change a sheet name, or reformat the sheet.
+
+**Why:** these workbooks feed downstream connections (Power BI / linked
+reports). Any structural change breaks them silently. A header that looks
+wrong or misleading is NOT a bug to fix — leave it exactly as it is and note
+the real meaning in `mappings/<country>.md` instead.
+
 ## Safety rules
 
 - **Verify-then-write.** Never write a month until a known prior month re-matches.
 - **Never overwrite** a non-blank cell. Only fill blanks / append the next month.
+  (`-FixMismatches` is the one exception, and needs explicit user consent.)
 - **Never touch** `EU Inflation rate.xlsx`.
 - **One backup per run:** copy the file to `<name>.bak-YYYYMMDD.xlsx` in the
   scratchpad before first write, in case a rollback is needed.
