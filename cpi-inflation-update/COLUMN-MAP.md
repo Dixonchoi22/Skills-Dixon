@@ -151,18 +151,91 @@ All three are free and key-free. **Release:** DK & NO ~10th, SE ~15th.
 
 ---
 
-## 🇮🇹 Italy — `IT_Inflation_indicators.xlsx` ⏳ research in progress
+## 🇮🇹 Italy — `IT_Inflation_indicators.xlsx` 🟡 history ✅ / 2026 🔴
 
-12 columns, Macrobond tickers (`3G16`, `TT74`, `TQ81` …). Candidate source:
-ISTAT SDMX. Known anomaly under investigation: decimals change from 1 dp to
-2 dp at 2026-01 and several columns jump — likely a rebase or source switch.
+**Source:** ISTAT SDMX — use **`esploradati.istat.it`**, NOT the documented
+`sdmx.istat.it` (that host returns HTTP 500 on every data request).
+Measure is **NIC** (national CPI), not HICP. **Free:** yes, no key.
 
-## 🇳🇱 Netherlands — `NL_inflation_indicators.xlsx` ⏳ research in progress
+```
+https://esploradati.istat.it/SDMXWS/rest/data/IT1,167_744_DF_DCSP_NIC1B2015_4,1.0/M.IT.39.4.   ← 2015=100, to 2025-12
+https://esploradati.istat.it/SDMXWS/rest/data/IT1,167_745_DF_DCSP_NIC1B2025_4,1.0/M.IT.85.4.   ← 2025=100, 2026-01 on
+```
 
-2 columns (`2D76` Total, `3G20` Food). Candidate source: CBS OpenData.
-⚠️ Suspected data-entry error: the two columns are **identical to 2 dp from
-2025-11 onward** though they differed in 2022 — the Total value looks to have
-been pasted into the Food column. Being verified against the real source.
+**Base:** 2015 = 100 through 2025-12  **Release:** final ~mid-month M+1
+**Latest available:** 2026-06
+
+| Col | Header | ISTAT code | ISTAT label | |
+|----:|--------|-----------|-------------|---|
+| B | 3G16 - CPI food IT | `01` | food **and non-alcoholic beverages** | ✅ |
+| C | TT74 - CPI vegetables IT | `0117` | vegetables | ✅ |
+| D | TQ81 - CPI seafood fzn IT | `01134` | frozen seafood | ✅ |
+| E | TQ61 - CPI meats IT | `0112` | meat | ✅ |
+| F | TQ67 - CPI poultry IT | `01124` | poultry | ✅ |
+| G | TQ84 - CPI milk/cheese/eggs IT | `0114` | milk, cheese and eggs | ✅ |
+| H | TT96 - CPI non-alcohol beverage IT | `012` | non-alcoholic beverages | ✅ |
+| I | TU06 - CPI alcohol beverage IT | `021` | alcoholic beverages | ✅ |
+| J | TT61 - CPI fruit IT | `0116` | fruit | ✅ |
+| K | TQ76 - CPI fish fresh IT | `01131` | fresh or chilled fish | ✅ |
+| L | TT91 - CPI confectionery IT | `01184` | confectionery products | ✅ |
+| M | TQ09 - CPI bakery/pastry IT | `01114` | other bakery and pastry products | ✅ |
+
+Column B is division **`01`** (food *and non-alcoholic beverages*), not `011`.
+ISTAT's English labels match the column names word for word — mapping is solid,
+46–47 of 48 months exact for every column.
+
+**🔴 The 2026-01 → 2026-03 block cannot be reproduced from any source.**
+ISTAT closed the 2015=100 NIC at Dec 2025 and started a new NIC on base
+2025 = 100 under the **ECOICOP-2** classification. That explains the 1 dp → 2 dp
+change and the level shifts. But the file's actual 2026 numbers match *neither*
+the new ISTAT series (chain-linked any way we tried), *nor* Eurostat HICP, *nor*
+any 5-digit code searched exhaustively. Provenance unknown — possibly a vendor
+re-linking or a modelled block. **Do not append to these rows; re-derive them.**
+
+**⚠️ The Dec-2025 row is also off-vintage** — 6 of 12 columns disagree with
+ISTAT's current data (first-release vs final revision). Frozen seafood is
+material: file 128.2 vs ISTAT 125.1.
+
+## 🇳🇱 Netherlands — `NL_inflation_indicators.xlsx` 🔴 BOTH COLUMNS WRONG
+
+**Source:** CBS OpenData OData API. **Free:** yes, anonymous.
+
+```
+https://opendata.cbs.nl/ODataApi/odata/83131NED/UntypedDataSet   ← 2015=100, to 2025-12 (stopped)
+https://opendata.cbs.nl/ODataApi/odata/86141NED/UntypedDataSet   ← 2025=100, live
+```
+Category keys: `CPI010000` = food & non-alcoholic beverages · `CPI011000` = food
+only · `T001112  ` (two trailing spaces) = all items.
+**Base:** 2015 = 100 (file scale); multiply the live 2025=100 table by **1.4481**.
+**Release:** ~4th–7th of month M+1  **Latest available:** 2026-06
+
+| Col | Header | What it ACTUALLY contains | |
+|----:|--------|---------------------------|---|
+| B | NL Total CPI (2D76) | CBS `CPI010000` — **food & non-alcoholic beverages**, *not* total CPI | ✅ history |
+| C | NL Food CPI (3G20) | a **copy of column B** (rounded to 1 dp before 2022-10) | 🔴 |
+
+**🔴 Two serious problems:**
+
+1. **This file contains no total CPI at all.** The column labelled "NL Total CPI"
+   is COICOP 01 food & drinks. The real Dutch all-items CPI (114.53 / 135.26 /
+   135.27 for Jan-22 / Nov-25 / Dec-25) appears nowhere. And column C has never
+   been an independent food series — it is column B, displayed at 1 dp until
+   Sep 2022 and copied verbatim after. So the workbook has **two food columns
+   and no total**, despite what the headers say.
+2. **The 2026 rows are wrong.** Jan–Mar 2026 were built from the **all-items**
+   index multiplied by the *food* chain factor. Feb and Mar reproduce from the
+   all-items series to the exact hundredth — proof, not resemblance.
+
+| Month | In file | **True food** (CBS `CPI010000`) | Error |
+|-------|--------:|-------------------------:|------:|
+| 2026-01 | 143.66 | **144.65** | −0.99 |
+| 2026-02 | 145.82 | **145.20** | +0.62 |
+| 2026-03 | 147.04 | **146.32** | +0.72 |
+| 2026-04 | — | **145.77** | not yet entered |
+| 2026-05 | — | **145.06** | not yet entered |
+| 2026-06 | — | **144.98** | not yet entered |
+
+Cross-checked against Eurostat (within 0.03). CBS is the source of record.
 
 ## 🇪🇺 EU — `EU Inflation rate.xlsx` 🚫 OUT OF SCOPE
 
