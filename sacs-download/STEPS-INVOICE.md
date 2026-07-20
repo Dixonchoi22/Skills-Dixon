@@ -180,6 +180,36 @@ Repeat. Jobs take up to ~1h. So the backfill runs in rounds of 5, over time.
 
 Only UK Feb–Jun 2026 is actually queued right now.
 
+## 🔧 Bug diagnosed + reliable path proven (2026-07-20)
+
+**Root cause:** the SACS **criteria popup does not refresh**. `showCriteria(id)`
+opens it for the first job, but subsequent calls keep showing that first job's
+content (the popup won't reopen and can't be reliably closed — `#viewInfo` reads
+empty, the `.k-window` keeps stale text). So every job read back the same month.
+`scan-available.js`'s "nothing reusable" was a false negative from this.
+
+**Do NOT rely on the criteria popup.** Two reliable mechanisms instead:
+
+1. **Download by jobId — PROVEN.** Clicking the completed row's
+   `a[onclick*=downloadReport]` (selector
+   `#JobStatusViewGrid tr:has(a[onclick*="showCriteria(<id>)"]) a[onclick*=downloadReport]`)
+   downloads the CSV. Verified: job 2203305 → 27,213,229 bytes, 89,475 rows,
+   header `Company Code,Profit Center,Fiscal Year,Period,Vendor,Vendor Name,
+   Purchase Order No.,ItemNo,PO Currency,Invoice No.,...`. This IS the invoice
+   format the UK_SACS files use.
+2. **Capture jobId at submit time.** Right after Export, read the grid and take
+   the new In-Queue jobId → record `{jobId → token, month}`. Then harvest by
+   jobId with the month already known. No criteria popup needed.
+
+**Month of an existing UNTRACKED completed job** (e.g. the current UK jobs whose
+month we lost to the popup bug): derive it from the CSV — the `Period` column
+(and invoice dates) identify the month. Download, read Period, file accordingly.
+
+**Redesign:** rewrite `backfill-invoice.js` around a jobId tracking file
+(`invoice-jobs.json`): submit→capture jobId; harvest→download-by-jobId→file by
+known month; untracked completed→derive month from CSV. This removes the popup
+entirely.
+
 ## 🐛 Orchestrator bug found + stopped (2026-07-20)
 
 `backfill-invoice.js` was launched but **stopped after it re-submitted UK Feb
