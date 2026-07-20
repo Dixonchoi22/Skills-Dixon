@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs');
 
 const SUBMIT = (process.argv[2] || '').toLowerCase() === 'submit';
+const MAX = parseInt(process.argv[3] || '5', 10);   // SACS allows max 5 queued jobs
 const APP = 'sacsemea.gategroup.com';
 const LOG = path.join(__dirname, 'invoice-submissions.json');
 
@@ -30,8 +31,9 @@ const UNITS = [
   { label: 'SE-MMX 3058',    token: 'SE,MMX'  },
   { label: 'NO-OSL 3052',    token: 'NO,OSL'  },
   { label: 'NO-BGO 3053',    token: 'NO,BGO'  },
+  { label: 'DK-BLL 3023',    token: 'DK,BLL'  },   // Dixon: include DK-BLL (no master, per unit)
 ];
-// DK excluded on purpose — no master, unit set unconfirmed, CPH on hold.
+// DK-CPH stays on hold. DK-BLL only.
 
 // backfill months: last day per month (2026)
 const MONTHS = [
@@ -50,13 +52,27 @@ const routePrefix = page => page.evaluate(() => { const a=[...document.querySele
   const ctx = browser.contexts()[0];
   const page = ctx.pages().find(p => p.url().includes('sacsemea')) || ctx.pages()[0];
 
+  // If SACS pops a "max 5 jobs" alert, dismiss it instead of hanging, and record it.
+  let lastDialog = '';
+  page.on('dialog', async d => { lastDialog = d.message().replace(/\s+/g, ' ').trim(); console.log('    [dialog] ' + lastDialog); await d.dismiss().catch(() => {}); });
+
   await page.goto('https://' + APP + '/', { waitUntil: 'networkidle' }).catch(() => {});
   const opts = await page.evaluate(() => { const s=document.querySelector('#WorkingUnit'); return s?[...s.options].map(o=>({v:o.value,t:(o.textContent||'').replace(/\s+/g,' ').trim()})):[]; });
 
   const submissions = fs.existsSync(LOG) ? JSON.parse(fs.readFileSync(LOG, 'utf8')) : [];
-  console.log((SUBMIT ? 'SUBMIT' : 'DRY RUN') + ' — ' + UNITS.length + ' units x ' + MONTHS.length + ' months = ' + (UNITS.length * MONTHS.length) + ' jobs\n');
+  const already = new Set(submissions.map(s => s.token + '|' + s.mon));
+  let sentThisRun = 0;
+  const key = (t, m) => t + '|' + m;
+  console.log((SUBMIT ? 'SUBMIT (max ' + MAX + ' this run)' : 'DRY RUN') + ' — full backfill ' + UNITS.length + ' units x ' + MONTHS.length + ' months = ' + (UNITS.length * MONTHS.length) + ' jobs');
+  console.log('already submitted (from log): ' + already.size + '\n');
 
   for (const u of UNITS) {
+    if (SUBMIT && sentThisRun >= MAX) break;
+    // any months still needed for this unit?
+    const pending = MONTHS.filter(m => !already.has(key(u.token, m.mon)));
+    if (!pending.length) { console.log('-- ' + u.label + ': all months already submitted'); continue; }
+    if (SUBMIT && sentThisRun >= MAX) break;
+
     const opt = opts.find(o => o.t === u.label) || opts.find(o => o.t.startsWith(u.label));
     if (!opt) { console.log('!! unit not found in dropdown: ' + u.label + ' — SKIPPED'); continue; }
 
@@ -75,6 +91,8 @@ const routePrefix = page => page.evaluate(() => { const a=[...document.querySele
     await page.waitForTimeout(800);
 
     for (const m of MONTHS) {
+      if (already.has(key(u.token, m.mon))) continue;
+      if (SUBMIT && sentThisRun >= MAX) { console.log('    reached max ' + MAX + ' for this run'); break; }
       await page.fill('#FromPeriod', m.from).catch(() => {});
       await page.dispatchEvent('#FromPeriod', 'change').catch(() => {});
       await page.fill('#ToPeriod', m.to).catch(() => {});
@@ -87,8 +105,11 @@ const routePrefix = page => page.evaluate(() => { const a=[...document.querySele
       if (SUBMIT) {
         await page.click('#ExportVendorInvoiceReport').catch(() => {});
         await page.waitForTimeout(1800);
-        submissions.push({ unit: u.label, token: u.token, mon: m.mon, year: 2026, from: m.from, to: m.to, submittedAt: new Date().toISOString() });
-        console.log('    submitted ' + u.token + ' ' + m.mon + '-2026');
+        submissions.push({ unit: u.label, token: u.token, mon: m.mon, year: 2026, from: m.from, to: m.to, prefix, submittedAt: new Date().toISOString() });
+        already.add(key(u.token, m.mon));
+        sentThisRun++;
+        fs.writeFileSync(LOG, JSON.stringify(submissions, null, 2));   // persist after each
+        console.log('    submitted ' + u.token + ' ' + m.mon + '-2026   (' + sentThisRun + '/' + MAX + ' this run)');
       } else {
         console.log('    would submit ' + u.token + ' ' + m.mon + '-2026  (' + m.from + '..' + m.to + ')');
       }

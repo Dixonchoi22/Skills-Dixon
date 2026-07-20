@@ -116,6 +116,42 @@ not per unit — Dixon: "I didn't do unit level because I'm lazy; you can do tha
 for me." So the target structure to build is
 `UK_SACS\<country>\<unit>\...` — TBC exactly with Dixon.
 
+## Reading a job + downloading it (confirmed 2026-07-20)
+
+Each job row exposes:
+- **View Criteria** — `gg.sacs.jobStatus.showCriteria(<jobId>)` opens a popup with
+  `FromPeriod`, `ToPeriod`, `SelectedUnits`, `IncludeNonInvOrders`,
+  `IncludeAdditionalOrders`, `MasterUnitId`, `vendorInfoId`, `JobId`.
+- **Download** (Complete jobs only) — an `<a title="Download Report">` whose
+  onclick is `downloadReport("Vendor Invoice Report_<stamp>.csv", "<unc path>")`.
+  Clicking it (with a Playwright download handler) saves the CSV.
+
+Statuses seen: `In Queue`, `Complete`, `Failed`. The grid is **per unit** and
+keeps history (other users' jobs show too).
+
+## Reuse other people's completed jobs (Dixon's idea)
+
+The grid shows colleagues' jobs. A completed job — anyone's — is **reusable
+instead of submitting our own** IF its criteria match exactly:
+
+- `FromPeriod` = `01/MM/YYYY 00:00`
+- `ToPeriod` = last day of that month
+- `IncludeNonInvOrders` = false
+- `IncludeAdditionalOrders` = false
+- `vendorInfoId` = 0 (all vendors)
+- right `MasterUnitId` / unit
+
+⚠️ **Must check the criteria first.** Example: a UK completed job by RPerisic was
+`FromPeriod 2026-07-01 → ToPeriod 2026-07-14` — a *partial* month, so NOT
+reusable. Matching the criteria is what makes reuse safe; download-and-hope is
+not. If no matching completed job exists, submit our own and wait.
+
+## First real batch submitted (2026-07-20 16:38)
+
+UK-MASTER Feb–Jun 2026 = 5 jobs queued (job ids 2638092–2638097). No "max"
+dialog — confirms the **5-job limit is PER UNIT**, and 5 months = one full unit.
+Logged in `invoice-submissions.json`.
+
 ## Still to confirm (Dixon continuing later)
 
 - [ ] Exact date range each month (previous whole month? `01` → last day?)

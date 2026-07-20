@@ -1,0 +1,52 @@
+[
+  {
+    "unit": "UK-MASTER",
+    "token": "UK",
+    "mon": "Feb",
+    "year": 2026,
+    "from": "01/02/2026",
+    "to": "28/02/2026",
+    "prefix": "101",
+    "submittedAt": "2026-07-20T15:38:26.786Z"
+  },
+  {
+    "unit": "UK-MASTER",
+    "token": "UK",
+    "mon": "Mar",
+    "year": 2026,
+    "from": "01/03/2026",
+    "to": "31/03/2026",
+    "prefix": "101",
+    "submittedAt": "2026-07-20T15:38:29.043Z"
+  },
+  {
+    "unit": "UK-MASTER",
+    "token": "UK",
+    "mon": "Apr",
+    "year": 2026,
+    "from": "01/04/2026",
+    "to": "30/04/2026",
+    "prefix": "101",
+    "submittedAt": "2026-07-20T15:38:31.288Z"
+  },
+  {
+    "unit": "UK-MASTER",
+    "token": "UK",
+    "mon": "May",
+    "year": 2026,
+    "from": "01/05/2026",
+    "to": "31/05/2026",
+    "prefix": "101",
+    "submittedAt": "2026-07-20T15:38:33.577Z"
+  },
+  {
+    "unit": "UK-MASTER",
+    "token": "UK",
+    "mon": "Jun",
+    "year": 2026,
+    "from": "01/06/2026",
+    "to": "30/06/2026",
+    "prefix": "101",
+    "submittedAt": "2026-07-20T15:38:35.852Z"
+  }
+]
