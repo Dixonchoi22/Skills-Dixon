@@ -180,6 +180,22 @@ Repeat. Jobs take up to ~1h. So the backfill runs in rounds of 5, over time.
 
 Only UK Feb–Jun 2026 is actually queued right now.
 
+## 🐛 Orchestrator bug found + stopped (2026-07-20)
+
+`backfill-invoice.js` was launched but **stopped after it re-submitted UK Feb
+and Mar** — months already queued. Root cause: the per-job **criteria read
+(`readJobs`) is not reliably returning the month**, so:
+- completed jobs are not harvested (no month match), and
+- already-queued months are not detected → duplicates submitted.
+
+**This same bug probably made `scan-available.js` report "nothing reusable"** —
+that result is suspect until the criteria read is fixed and re-run.
+
+**Do not re-launch the orchestrator until `readJobs` criteria parsing is fixed
+and verified** (the popup likely needs longer to populate / a more specific
+selector / guaranteed close between reads). No damage done — the extra UK jobs
+just produce duplicate reports.
+
 ## Still to confirm (Dixon continuing later)
 
 - [ ] Exact date range each month (previous whole month? `01` → last day?)
