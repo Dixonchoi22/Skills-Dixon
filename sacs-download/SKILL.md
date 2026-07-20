@@ -16,6 +16,20 @@ Automates the monthly pull of PO and invoice data from **Global S.A.C.S.**
 spend folders. This is the **upstream half** of
 [`spend-data-update`](../spend-data-update/SKILL.md).
 
+## 📅 Which months — always full, always up to "last month"
+
+**Always download whole calendar months, and always up to and including the
+month BEFORE the current one** (Dixon, 2026-07-20). Never a partial or current
+month. In July 2026, coverage must run through **June 2026**.
+
+- PO: the single previous month each run (`MMYY.csv`).
+- Invoice: date range `01/MM/YYYY` → last day of `MM`, for every month from the
+  last one already on file up to (current month − 1).
+- Backfill = fill every missing whole month up to last month. Current target:
+  Feb–Jun 2026 (June is the last completed month).
+
+Each monthly run just adds the newly-completed previous month.
+
 ## ⛔ Ground rules — this is a PRODUCTION system
 
 - **Export / read only.** Never save, submit, generate, approve, post or
