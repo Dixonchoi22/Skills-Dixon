@@ -23,7 +23,7 @@
     .\update-cpi.ps1 -Country UK -FixMismatches     # rewrites history: ask first
 #>
 param(
-  [ValidateSet('UK','DE','NL','SACN','CH')][string]$Country = 'UK',
+  [ValidateSet('UK','DE','NL','SACN','CH','BE')][string]$Country = 'UK',
   [switch]$DryRun,
   [switch]$FixMismatches,
   [double]$FixAbove = 0,    # with -FixMismatches, only correct gaps LARGER than this.
@@ -195,8 +195,34 @@ function Get-NlSeries {
 # confirmed - see COLUMN-MAP.md - so they are deliberately left blank rather
 # than filled with numbers we cannot stand behind.
 $SACN_MAP = @(
-  [pscustomobject]@{ Col=2; Code='DK-01' }   # "Food DK (3G06)"
+  [pscustomobject]@{ Col=2; Code='DK-01' }   # "Food DK (3G06)"  2015=100 via derived factor
+  [pscustomobject]@{ Col=3; Code='NO-01' }   # "Food NO (3G21)"  SSB 14700, base 2025=100
+  [pscustomobject]@{ Col=4; Code='SE-01' }   # "Food SE (3G27)"  SCB KPI2020COICOP2M, base 2020=100
 )
+
+# Each Nordic column sits on its own country's CURRENT official base. They are
+# three separate national series and are never compared to each other directly,
+# so differing bases across columns is fine - differing bases WITHIN a column
+# is what breaks things.
+function Get-JsonStatSeries {
+  param([string]$Url, [string]$BodyJson, [string]$Tag)
+  $bf = Join-Path $env:TEMP "q_$Tag.json"
+  $of = Join-Path $env:TEMP "r_$Tag.json"
+  $BodyJson | Out-File $bf -Encoding utf8
+  & curl.exe -sS -m 180 -X POST $Url -H 'Content-Type: application/json' --data-binary "@$bf" -o $of | Out-Null
+  $o = Get-Content $of -Raw | ConvertFrom-Json
+  $tid = $o.dimension.Tid.category.index
+  $vals = $o.value
+  $h = @{}
+  foreach ($p in $tid.PSObject.Properties) {
+    if ($p.Name -match '^(\d{4})M(\d{2})$') {
+      $v = $vals[[int]$p.Value]
+      if ($null -ne $v) { $h["$($Matches[1])-$($Matches[2])"] = [double]$v }
+    }
+  }
+  if ($h.Count -eq 0) { throw "$Tag - no monthly values parsed" }
+  return $h
+}
 
 function Get-SacnSeries {
   param($Map)
@@ -236,8 +262,18 @@ function Get-SacnSeries {
   foreach ($k in $old.Keys) { $h[$k] = $old[$k] }
   foreach ($k in $new.Keys) { if ($k -ge '2026-01') { $h[$k] = [math]::Round($new[$k] * $factor, 2) } }
 
-  $out = @{}
-  foreach ($m in $Map) { $out[$m.Col] = $h; Write-Host ("  {0,-8} col {1,2}  {2} points" -f $m.Code, $m.Col, $h.Count) }
+  # --- Norway: SSB table 14700, base 2025=100, full history from 2000 -------
+  $noBody = '{"query":[{"code":"VareTjenesteGrp","selection":{"filter":"item","values":["01"]}},{"code":"ContentsCode","selection":{"filter":"item","values":["KpiIndMnd"]}}],"response":{"format":"json-stat2"}}'
+  $no = Get-JsonStatSeries -Url 'https://data.ssb.no/api/v0/en/table/14700' -BodyJson $noBody -Tag 'no'
+
+  # --- Sweden: SCB KPI2020COICOP2M, base 2020=100 (Sweden did NOT rebase) ---
+  $seBody = '{"query":[{"code":"VaruTjanstegrupp","selection":{"filter":"item","values":["01"]}},{"code":"ContentsCode","selection":{"filter":"item","values":["0000080C"]}}],"response":{"format":"json-stat2"}}'
+  $se = Get-JsonStatSeries -Url 'https://api.scb.se/OV0104/v1/doris/en/ssd/PR/PR0101/PR0101A/KPI2020COICOP2M' -BodyJson $seBody -Tag 'se'
+
+  $out = @{ 2 = $h; 3 = $no; 4 = $se }
+  Write-Host ("  DK-01    col  2  {0} points (2015=100 via derived factor)" -f $h.Count)
+  Write-Host ("  NO-01    col  3  {0} points (2025=100)" -f $no.Count)
+  Write-Host ("  SE-01    col  4  {0} points (2020=100)" -f $se.Count)
   return $out
 }
 
@@ -326,6 +362,39 @@ function Get-ChSeries {
   return $out
 }
 
+# --------------------------------------------------------- BE (Statbel) --
+# Statbel republishes the WHOLE file on the current base (NM_BASE_YR is 2025 on
+# every row, even 2006 ones), so we read official numbers - no splice factor.
+$BE_MAP = @( [pscustomobject]@{ Col=2; Code='01' } )   # food AND non-alc bev
+
+function Get-BeSeries {
+  param($Map)
+  $zip = "$env:TEMP\be_cpi.zip"; $dir = "$env:TEMP\be_cpi"
+  if (-not (Test-Path $zip)) {
+    & curl.exe -sS -L -m 600 'https://statbel.fgov.be/sites/default/files/files/opendata/Indexen%20per%20productgroep/CPI%20All%20groups.zip' -o $zip | Out-Null
+  }
+  if (-not (Test-Path $dir)) { Expand-Archive $zip -DestinationPath $dir -Force }
+  $txt = Get-ChildItem $dir -Filter *.txt | Select-Object -First 1
+  # 42 MB - stream it, never load the whole file
+  $h = @{}; $bases = @{}
+  $rd = [System.IO.File]::OpenText($txt.FullName)
+  [void]$rd.ReadLine()
+  while ($null -ne ($ln = $rd.ReadLine())) {
+    $f = $ln -split '\|'
+    if ($f.Count -gt 22 -and $f[2] -eq '01') {
+      $h[("{0}-{1:d2}" -f [int]$f[0], [int]$f[1])] = [math]::Round([double]$f[18], 2)
+      $bases[$f[22]] = $true
+    }
+  }
+  $rd.Close()
+  if ($bases.Keys.Count -ne 1 -or -not $bases.ContainsKey('2025')) {
+    throw "Statbel base changed - found base year(s): $($bases.Keys -join ',')"
+  }
+  $out = @{}
+  foreach ($m in $Map) { $out[$m.Col] = $h; Write-Host ("  COICOP {0,-4} col {1,2}  {2} points (base 2025=100)" -f $m.Code, $m.Col, $h.Count) }
+  return $out
+}
+
 # ------------------------------------------------------------------ config --
 $CFG = @{
   UK = @{ File = 'UK_Inflation_Indicators.xlsx';      Map = $UK_MAP; Fetch = { Get-UkSeries $UK_MAP } }
@@ -333,6 +402,7 @@ $CFG = @{
   NL = @{ File = 'NL_inflation_indicators.xlsx';      Map = $NL_MAP; Fetch = { Get-NlSeries $NL_MAP } }
   SACN = @{ File = 'SACN_inflation_indicators.xlsx';  Map = $SACN_MAP; Fetch = { Get-SacnSeries $SACN_MAP } }
   CH = @{ File = 'CH_inflation_indicators.xlsx';      Map = $CH_MAP; Fetch = { Get-ChSeries $CH_MAP } }
+  BE = @{ File = 'BE_Inflation_indicators.xlsx';      Map = $BE_MAP; Fetch = { Get-BeSeries $BE_MAP } }
 }
 $c    = $CFG[$Country]
 $File = Join-Path $CPI_DIR $c.File

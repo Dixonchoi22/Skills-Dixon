@@ -120,3 +120,31 @@ The six unchanged columns are the proof the rewrite was contained. The whole
 Dec-2025 row now reads 100.00 across all eight columns - one base, one series.
 
 Headers and date format untouched, per user instruction.
+
+## 2026-07-20 — Belgium, Norway, Sweden (rebase + update)
+
+All three had been declared "cannot automate". That judgement was wrong — it
+came from trying to CONTINUE each column on its old base, which needed fitted
+splice factors. All three statistics offices publish their **full history on the
+current base**, so each column was re-anchored and no factor is used anywhere.
+
+| Country | New base | Cells rewritten | Months appended |
+|---------|----------|----------------:|-----------------|
+| Belgium | 2025=100 | 51 | Apr/May/Jun 2026 (100.93 / 100.39 / 99.96) |
+| Norway  | 2025=100 | 51 | Apr/May/Jun 2026 (102.30 / 102.10 / 102.40) |
+| Sweden  | 2020=100 | 51 | Apr/May/Jun 2026 (125.14 / 124.63 / 123.91) |
+
+Denmark untouched — its 54 cells re-verified and still match.
+Backups: `%TEMP%\cpi-backups\BE_...bak-20260720-145533.xlsx`,
+`SACN_...bak-20260720-145632.xlsx`.
+
+Rebasing changes index LEVELS but not the shape of the series — growth rates and
+trends are unchanged. Reports quoting index levels need re-running; reports
+quoting inflation rates do not.
+
+### ⚠️ Sweden April 2026: −5.5% is a real VAT cut, not a data fault
+
+Food VAT cut 12% → 6% from 1 Apr 2026 (to 31 Dec 2027). SCB carries it into its
+official 12-month rate (−6.8% at Jun-26). Swedish food inflation will read
+~5.5pp below comparable countries until Apr 2027 and rebound at end-2027.
+Do not "correct" it. See `mappings/SACN.md`.

@@ -12,9 +12,28 @@ description: >-
 
 # CPI / Inflation Indicators Update — SOP
 
-Each month, national statistics offices publish new food-CPI **index** values
-(base 2015 = 100). This skill pulls the latest values and appends them to the
-per-country files in the CPI master folder, one file per country/region.
+## The job, in one line
+
+**When a new CPI is published: add a date row, and put that month's index
+values in. That is all this skill does.**
+
+Everything below is in service of doing that correctly — knowing which source
+feeds which column, and refusing to write when a number cannot be trusted.
+Nothing here licenses redesigning these workbooks.
+
+Each month, national statistics offices publish new food-CPI **index** values.
+This skill pulls them and appends them to the per-country files in the CPI
+master folder, one file per country/region.
+
+### Routine monthly run
+
+```powershell
+.\update-cpi.ps1 -Country UK    # then DE, NL, SACN, CH
+```
+
+That is the whole routine. It adds the new month and stops. Anything else —
+correcting an old value, rebasing a column — is an exception that needs the
+user to say so first.
 
 ## Paths
 
