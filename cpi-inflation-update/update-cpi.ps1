@@ -23,9 +23,12 @@
     .\update-cpi.ps1 -Country UK -FixMismatches     # rewrites history: ask first
 #>
 param(
-  [ValidateSet('UK','DE')][string]$Country = 'UK',
+  [ValidateSet('UK','DE','NL','SACN')][string]$Country = 'UK',
   [switch]$DryRun,
   [switch]$FixMismatches,
+  [double]$FixAbove = 0,    # with -FixMismatches, only correct gaps LARGER than this.
+                            # Lets you fix real errors while leaving harmless historical
+                            # rounding alone (e.g. NL col C was stored at 1 dp pre-2022-10).
   [string]$BackupDir = "$env:TEMP\cpi-backups"
 )
 
@@ -144,10 +147,106 @@ function Get-DeSeries {
   return $out
 }
 
+# ------------------------------------------------------------------ NL (CBS) --
+# Both columns carry the SAME series. See mappings/NL.md: the column labelled
+# "NL Total CPI" is in fact COICOP 01 food & non-alcoholic beverages, and
+# "NL Food CPI" has always been a verbatim copy of it. We reproduce that
+# faithfully rather than change the file's structure.
+$NL_MAP = @(
+  [pscustomobject]@{ Col=2; Code='CPI010000' }   # header says "NL Total CPI (2D76)"
+  [pscustomobject]@{ Col=3; Code='CPI010000' }   # header says "NL Food CPI (3G20)"
+)
+
+function Get-NlSeries {
+  param($Map)
+  $base = 'https://opendata.cbs.nl/ODataApi/odata'
+  function Get-CbsTable($table, $filter) {
+    $u = "$base/$table/UntypedDataSet?`$filter=$filter&`$select=Perioden,CPI_1"
+    $f = Join-Path $env:TEMP "cbs_$table.json"
+    & curl.exe -s -m 120 $u -o $f | Out-Null
+    return (Get-Content $f -Raw | ConvertFrom-Json).value
+  }
+  $cat = "Bestedingscategorieen%20eq%20%27CPI010000%27"
+
+  # chain factor: CBS's own published 2025 annual average on the old (2015=100)
+  # base. Derived from published data, NOT fitted - see mappings/NL.md.
+  $ann = Get-CbsTable '83131NED' "$cat%20and%20Perioden%20eq%20%272025JJ00%27"
+  if (-not $ann) { throw "CBS: could not read 2025 annual average" }
+  $factor = [double]($ann[0].CPI_1) / 100.0
+  Write-Host ("  chain factor {0} (CBS 2025 annual = {1})" -f $factor, $ann[0].CPI_1)
+
+  $h = @{}
+  foreach ($r in (Get-CbsTable '83131NED' $cat)) {            # 2015=100, to 2025-12
+    if ($r.Perioden -match '^(\d{4})MM(\d{2})$') { $h["$($Matches[1])-$($Matches[2])"] = [double]$r.CPI_1 }
+  }
+  foreach ($r in (Get-CbsTable '86141NED' $cat)) {            # 2025=100 live -> rescale
+    if ($r.Perioden -match '^(\d{4})MM(\d{2})$') {
+      $k = "$($Matches[1])-$($Matches[2])"
+      if ($Matches[1] -ge 2026) { $h[$k] = [math]::Round([double]$r.CPI_1 * $factor, 2) }
+    }
+  }
+  $out = @{}
+  foreach ($m in $Map) { $out[$m.Col] = $h; Write-Host ("  {0,-10} col {1,2}  {2} points" -f $m.Code, $m.Col, $h.Count) }
+  return $out
+}
+
+# --------------------------------------------------- SACN / Denmark (DST) --
+# ONLY Denmark (col B) is mapped. Norway (col C) and Sweden (col D) are NOT
+# confirmed - see COLUMN-MAP.md - so they are deliberately left blank rather
+# than filled with numbers we cannot stand behind.
+$SACN_MAP = @(
+  [pscustomobject]@{ Col=2; Code='DK-01' }   # "Food DK (3G06)"
+)
+
+function Get-SacnSeries {
+  param($Map)
+  function Get-DstTable($table, $varegr) {
+    $body = @{ table=$table; format='CSV'; delimiter='Semicolon'
+      variables=@(
+        @{ code='VAREGR'; values=@($varegr) },
+        @{ code='ENHED';  values=@('100') },
+        @{ code='Tid';    values=@('*') }
+      ) } | ConvertTo-Json -Depth 6
+    $bf = Join-Path $env:TEMP "dst_$table.json"
+    $of = Join-Path $env:TEMP "dst_$table.csv"
+    $body | Out-File $bf -Encoding utf8
+    & curl.exe -s -m 120 -X POST 'https://api.statbank.dk/v1/data' `
+        -H 'Content-Type: application/json' --data-binary "@$bf" -o $of | Out-Null
+    $h = @{}
+    foreach ($l in (Get-Content $of | Select-Object -Skip 1)) {
+      $p = $l -split ';'
+      if ($p.Count -ge 4 -and $p[2] -match '^(\d{4})M(\d{2})$') {
+        $h["$($Matches[1])-$($Matches[2])"] = [double]($p[3] -replace ',', '.')
+      }
+    }
+    return $h
+  }
+
+  $old = Get-DstTable 'PRIS111' '010000'   # 2015=100, COICOP 01, to 2025-12
+  $new = Get-DstTable 'PRIS01'  '011'      # 2025=100, COICOP 01.1, 2026-01 on
+
+  # Chain factor = mean of the twelve published 2025 monthly values on the old
+  # base. Derived from published data, not fitted.
+  $v2025 = $old.GetEnumerator() | Where-Object { $_.Key -like '2025-*' } | ForEach-Object { $_.Value }
+  if ($v2025.Count -ne 12) { throw "DST: expected 12 months of 2025, got $($v2025.Count)" }
+  $factor = ($v2025 | Measure-Object -Average).Average / 100
+  Write-Host ("  chain factor {0:N6} (mean of 12 published 2025 months)" -f $factor)
+
+  $h = @{}
+  foreach ($k in $old.Keys) { $h[$k] = $old[$k] }
+  foreach ($k in $new.Keys) { if ($k -ge '2026-01') { $h[$k] = [math]::Round($new[$k] * $factor, 2) } }
+
+  $out = @{}
+  foreach ($m in $Map) { $out[$m.Col] = $h; Write-Host ("  {0,-8} col {1,2}  {2} points" -f $m.Code, $m.Col, $h.Count) }
+  return $out
+}
+
 # ------------------------------------------------------------------ config --
 $CFG = @{
   UK = @{ File = 'UK_Inflation_Indicators.xlsx';      Map = $UK_MAP; Fetch = { Get-UkSeries $UK_MAP } }
   DE = @{ File = 'Germany_inflation_indicators.xlsx'; Map = $DE_MAP; Fetch = { Get-DeSeries $DE_MAP } }
+  NL = @{ File = 'NL_inflation_indicators.xlsx';      Map = $NL_MAP; Fetch = { Get-NlSeries $NL_MAP } }
+  SACN = @{ File = 'SACN_inflation_indicators.xlsx';  Map = $SACN_MAP; Fetch = { Get-SacnSeries $SACN_MAP } }
 }
 $c    = $CFG[$Country]
 $File = Join-Path $CPI_DIR $c.File
@@ -173,7 +272,16 @@ $seenMonths = @{}; $lastDatedRow = 1; $lastDate = $null
 for ($r = 2; $r -le $lastRow; $r++) {
   $dv = $ws.Cells.Item($r,1).Value2
   if (-not $dv) { continue }
-  $d = if ($dv -is [string]) { [DateTime]::Parse($dv) } else { [DateTime]::FromOADate($dv) }
+  # Some workbooks (SACN, NL) hold TEXT dates like "01/02/2022" in early rows.
+  # Never use [DateTime]::Parse here - under a US locale it reads that as
+  # 2 January, not 1 February, silently shifting the whole verification.
+  if ($dv -is [string]) {
+    $fmts = [string[]]@('dd/MM/yyyy','d/M/yyyy','yyyy-MM-dd','dd-MM-yyyy')
+    $d = [DateTime]::ParseExact([string]$dv.Trim(), $fmts,
+           [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None)
+  } else {
+    $d = [DateTime]::FromOADate($dv)
+  }
   $key = "{0}-{1:d2}" -f $d.Year, $d.Month
   $seenMonths[$key] = $r
   $lastDatedRow = $r; $lastDate = $d
@@ -218,8 +326,14 @@ if ($mismatch.Count -gt 0) {
   Write-Host ("WARNING - {0} existing cells disagree with source (NOT changed):" -f $mismatch.Count) -ForegroundColor Yellow
   $mismatch | Format-Table Month, Col, Code, File, Src -AutoSize | Out-String | Write-Host
   if ($FixMismatches) {
-    Write-Host "-FixMismatches set: these WILL be overwritten with the source value." -ForegroundColor Red
-    foreach ($x in $mismatch) {
+    $fix  = $mismatch | Where-Object { [Math]::Abs($_.File - $_.Src) -gt $FixAbove }
+    $skip = $mismatch | Where-Object { [Math]::Abs($_.File - $_.Src) -le $FixAbove }
+    if ($FixAbove -gt 0) {
+      Write-Host ("-FixAbove {0}: correcting {1}, leaving {2} within tolerance." -f $FixAbove, $fix.Count, $skip.Count) -ForegroundColor Red
+    } else {
+      Write-Host "-FixMismatches set: these WILL be overwritten with the source value." -ForegroundColor Red
+    }
+    foreach ($x in $fix) {
       $toWrite += [pscustomobject]@{ Row=$x.Row; Col=$x.Col; Code=$x.Code; Month=$x.Month; Value=$x.Src }
     }
   } else {

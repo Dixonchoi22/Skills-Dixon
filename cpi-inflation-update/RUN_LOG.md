@@ -50,3 +50,45 @@ To correct these, re-run with `-FixMismatches`.
 ### Still open
 - Countries DE / IT / CH / NL / BE / SACN — source not yet identified.
 - Scheduled Task not yet created.
+
+## 2026-07-20 — Germany (first run)
+
+**Written:** 3 new dated rows appended — Apr / May / Jun 2026, 10 columns each.
+458 existing cells verified against Destatis first.
+**Backup:** `%TEMP%\cpi-backups\Germany_inflation_indicators.bak-20260720-133908.xlsx`
+
+⚠️ 2 cells still disagree and were NOT changed (a `-FixMismatches` run was
+blocked by a permission prompt): Oct 2025 non-alcoholic beverages 141.2 vs
+142.2, Nov 2025 poultry 149.3 vs 149.4. Likely Destatis revisions.
+
+## 2026-07-20 — Netherlands (first run)
+
+**Written:** 6 cells corrected + 3 new rows appended (Apr / May / Jun 2026).
+88 existing cells verified.
+**Backup:** `%TEMP%\cpi-backups\NL_inflation_indicators.bak-20260720-140412.xlsx`
+
+Jan–Mar 2026 had been built from the **all-items** index × the *food* chain
+factor. Corrected to the true food series:
+
+| Month | Was | Now |
+|-------|----:|----:|
+| Jan 2026 | 143.66 | 144.65 |
+| Feb 2026 | 145.82 | 145.20 |
+| Mar 2026 | 147.04 | 146.32 |
+
+Appended: Apr 145.77 · May 145.06 · Jun 144.98.
+
+Eight 2022 cells in column C differ by ≤0.05 (old 1 dp rounding) — left alone
+via `-FixAbove 0.1`.
+
+**Not done, by user instruction:** no real total-CPI column was added, despite
+neither existing column containing one. User: "I have what I need already".
+
+## 2026-07-20 — Nordics / Denmark only (first run)
+
+**Written:** Jun 2024 corrected 130.60 → 130.50 (DST revision) + 3 new rows
+appended (Apr 136.50 / May 135.13 / Jun 135.14). 50 existing cells verified.
+**Backup:** `%TEMP%\cpi-backups\SACN_inflation_indicators.bak-20260720-140726.xlsx`
+
+**Norway and Sweden left blank on the new rows on purpose** — neither source is
+confirmed (see `mappings/SACN.md`). A visible gap beats unverifiable numbers.
